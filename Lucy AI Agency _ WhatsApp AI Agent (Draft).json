@@ -1,0 +1,365 @@
+{
+  "name": "Lucy AI Agency | WhatsApp AI Agent (Draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "bd5b14e0-472e-44e6-ab59-43efe609324e",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        240
+      ],
+      "webhookId": "1c2fa2f8-7f1e-4efb-9d9c-dcb36dee83ea",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "c9dKiTjapyRgdSql",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "messageText",
+              "type": "string",
+              "value": "={{ $json.messages?.[0]?.text?.body || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body || \"\" }}"
+            },
+            {
+              "id": "phone",
+              "name": "senderPhone",
+              "type": "string",
+              "value": "={{ $json.contacts?.[0]?.wa_id || $json.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id || (/^[0-9]{8,15}$/.test($json.messages?.[0]?.from || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from || '') ? ($json.messages?.[0]?.from || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from) : '') || '' }}"
+            },
+            {
+              "id": "user",
+              "name": "senderUserId",
+              "type": "string",
+              "value": "={{ $json.messages?.[0]?.from_user_id || $json.contacts?.[0]?.user_id || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from_user_id || $json.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.user_id || \"\" }}"
+            },
+            {
+              "id": "from",
+              "name": "senderFrom",
+              "type": "string",
+              "value": "={{ $json.messages?.[0]?.from || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from || \"\" }}"
+            },
+            {
+              "id": "msgid",
+              "name": "messageId",
+              "type": "string",
+              "value": "={{ $json.messages?.[0]?.id || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id || \"\" }}"
+            },
+            {
+              "id": "session",
+              "name": "sessionKey",
+              "type": "string",
+              "value": "={{ 'lucy-ai-agency:' + ($json.messages?.[0]?.from_user_id || $json.contacts?.[0]?.user_id || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from_user_id || $json.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.user_id || $json.contacts?.[0]?.wa_id || $json.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id || $json.messages?.[0]?.from || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from || '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "492531c4-607e-47b8-8636-38d5e7c88574",
+      "name": "Normalize WhatsApp Sender",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        464,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.messageText }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "leftValue": "={{ $json.senderUserId || $json.senderPhone || $json.senderFrom }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b9a94a09-8288-4207-9263-2304033388ed",
+      "name": "Text Message With Sender?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        688,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "options": {
+          "systemMessage": "You are the test assistant for Lucy AI Agency. Respond briefly, accurately and politely to WhatsApp users. Do not invent agency prices, hours, guarantees or services. If business specifics are missing, offer to connect the user to a human. Do not claim you took an action you did not take. Never reveal private conversation details. Reply in plain conversational language."
+        }
+      },
+      "id": "7e286226-898f-473e-a933-a1b537b25b4c",
+      "name": "WhatsApp AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        912,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "78b1491f-dac1-43ff-aba3-166398d1b2a3",
+      "name": "Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        480
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "moadf9Fmcv73h01e",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Normalize WhatsApp Sender').first().json.sessionKey }}",
+        "contextWindowLength": 8
+      },
+      "id": "bc8109a9-8f5d-475d-8fe4-117802af2f53",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1056,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Normalize WhatsApp Sender').first().json.senderPhone }}",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              },
+              "rightValue": "^[0-9]{8,15}$"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4e502499-a8cb-49a8-8077-2b9248659294",
+      "name": "Phone Recipient Available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1264,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1057459487456755",
+        "recipientPhoneNumber": "={{ $('Normalize WhatsApp Sender').first().json.senderPhone }}",
+        "textBody": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "c089efa6-7354-47ba-9844-0bc42211775d",
+      "name": "Send Reply - Native WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1488,
+        144
+      ],
+      "webhookId": "08b11ee9-1e7a-4a40-b2cd-4d489f6dd80b",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "KbhXHLKz04ChlVdN",
+          "name": "WhatsApp Lucy account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "deliveryStatus",
+              "type": "string",
+              "value": "NOT_SENT: native n8n WhatsApp node requires a phone number. Verify raw webhook BSUID and Meta API recipient support before enabling HTTP fallback."
+            },
+            {
+              "id": "bsuid",
+              "name": "bsuid",
+              "type": "string",
+              "value": "={{ $('Normalize WhatsApp Sender').first().json.senderUserId }}"
+            },
+            {
+              "id": "answer",
+              "name": "proposedReply",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f8eef75c-7ff8-40c6-9cd1-5119a3b214f6",
+      "name": "BSUID-only - Reply Pending API Validation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1488,
+        336
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize WhatsApp Sender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize WhatsApp Sender": {
+      "main": [
+        [
+          {
+            "node": "Text Message With Sender?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Message With Sender?": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Phone Recipient Available?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "WhatsApp AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "WhatsApp AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phone Recipient Available?": {
+      "main": [
+        [
+          {
+            "node": "Send Reply - Native WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BSUID-only - Reply Pending API Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "94dc5c81-a2c3-4907-b1e6-3ba6815a8c6a",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "b74db8ccf83aa7363bfaf4515b00d3f530f973c7ecee12b81e73eca2e3536285"
+  },
+  "nodeGroups": [],
+  "id": "EsdqoyaqDwNyZgZZ",
+  "tags": []
+}
